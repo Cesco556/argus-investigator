@@ -9,6 +9,9 @@ export function getMCPClient(): Promise<MCPClient> {
       transport: {
         type: "http",
         url: env.MCP_SERVER_URL,
+        headers: env.MCP_AUTH_TOKEN
+          ? { Authorization: `Bearer ${env.MCP_AUTH_TOKEN}` }
+          : undefined,
       },
     }).catch((err) => {
       clientPromise = null;
