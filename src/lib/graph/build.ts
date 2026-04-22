@@ -29,6 +29,7 @@ export interface NodeAttrs {
   x: number;
   y: number;
   detail: NodeDetail;
+  activatesAt: number | null;
 }
 
 export interface EdgeAttrs {
@@ -79,6 +80,20 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
     return p;
   };
 
+  const branchStats = new Map<string, { count: number; total: number; caseIds: Set<string>; firstTs: number }>();
+  const caseFirstTs = new Map<string, number>();
+  for (const t of TRANSACTIONS) {
+    const ts = new Date(t.ts).getTime();
+    const b = branchStats.get(t.branch) ?? { count: 0, total: 0, caseIds: new Set<string>(), firstTs: ts };
+    b.count += 1;
+    b.total += t.amount;
+    b.caseIds.add(t.case_id);
+    if (ts < b.firstTs) b.firstTs = ts;
+    branchStats.set(t.branch, b);
+    const prev = caseFirstTs.get(t.case_id);
+    if (prev === undefined || ts < prev) caseFirstTs.set(t.case_id, ts);
+  }
+
   for (const e of Object.values(ENTITIES)) {
     g.addNode(e.entity_id, {
       label: e.legal_name,
@@ -86,6 +101,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
       size: 10 + e.isolation_forest_score * 16,
       color: ENTITY_COLOR[entityTier(e)],
       ...nextPos(),
+      activatesAt: null,
       detail: {
         kind: "entity",
         entity_id: e.entity_id,
@@ -108,6 +124,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
           size: 6,
           color: OWNER_COLOR,
           ...nextPos(),
+          activatesAt: null,
           detail: {
             kind: "owner",
             name: o.name,
@@ -133,6 +150,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
             size: 11,
             color: SANCTIONS_COLOR,
             ...nextPos(),
+            activatesAt: null,
             detail: { kind: "sanctions", list: h.list },
           });
         }
@@ -154,6 +172,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
       size: 9 + c.risk_score * 6,
       color: CASE_COLOR,
       ...nextPos(),
+      activatesAt: caseFirstTs.get(c.id) ?? null,
       detail: {
         kind: "case",
         id: c.id,
@@ -172,15 +191,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
     }
   }
 
-  const branches = new Map<string, { count: number; total: number; caseIds: Set<string> }>();
-  for (const t of TRANSACTIONS) {
-    const b = branches.get(t.branch) ?? { count: 0, total: 0, caseIds: new Set() };
-    b.count += 1;
-    b.total += t.amount;
-    b.caseIds.add(t.case_id);
-    branches.set(t.branch, b);
-  }
-  for (const [branch, stats] of branches) {
+  for (const [branch, stats] of branchStats) {
     const branchId = `br:${slug(branch)}`;
     g.addNode(branchId, {
       label: branch,
@@ -188,6 +199,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
       size: 6 + Math.log2(stats.count + 1) * 2,
       color: BRANCH_COLOR,
       ...nextPos(),
+      activatesAt: stats.firstTs,
       detail: {
         kind: "branch",
         branch,
