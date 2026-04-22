@@ -1,13 +1,15 @@
 import { PageHeader } from "@/components/shell/page-header";
 import { NetworkGraph } from "@/components/graph/network-graph";
-import { buildNetworkGraph } from "@/lib/graph/build";
+import { buildNetworkGraph, type NodeAttrs } from "@/lib/graph/build";
 
 export const metadata = { title: "Network graph" };
 
+type SerializedNode = { key: string; attributes?: NodeAttrs };
+
 export default function GraphPage() {
   const data = buildNetworkGraph();
-  const entityCount = data.nodes.filter((n) => n.attributes?.kind === "entity").length;
-  const sanctionsCount = data.nodes.filter((n) => n.attributes?.kind === "sanctions").length;
+  const entityCount = data.nodes.filter((n: SerializedNode) => n.attributes?.kind === "entity").length;
+  const sanctionsCount = data.nodes.filter((n: SerializedNode) => n.attributes?.kind === "sanctions").length;
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-8">
