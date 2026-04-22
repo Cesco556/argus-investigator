@@ -1,37 +1,36 @@
 import { PageHeader } from "@/components/shell/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { NetworkGraph } from "@/components/graph/network-graph";
+import { buildNetworkGraph } from "@/lib/graph/build";
 
 export const metadata = { title: "Network graph" };
 
 export default function GraphPage() {
+  const data = buildNetworkGraph();
+  const entityCount = data.nodes.filter((n) => n.attributes?.kind === "entity").length;
+  const sanctionsCount = data.nodes.filter((n) => n.attributes?.kind === "sanctions").length;
+
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-8">
       <PageHeader
         eyebrow="Network forensics"
         title="Entity graph"
-        description="Force-directed view of the resolved counterparty network."
+        description={`${entityCount} resolved entities · ${data.nodes.length} nodes · ${data.edges.length} edges · ${sanctionsCount} sanctions list hit${sanctionsCount === 1 ? "" : "s"}. Force-directed WebGL view of the counterparty network.`}
       />
-      <Card className="mt-6">
-        <CardContent className="p-8">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Roadmap — Week 4
-          </div>
-          <h2 className="mt-1 text-base font-semibold">WebGL graph canvas</h2>
-          <p className="mt-2 max-w-2xl text-sm text-foreground/85">
-            Sigma.js + ForceAtlas2 layout over the resolved entity / transaction / sanctions graph. Nodes are coloured by
-            anomaly score, edges carry weight from cumulative GBP flow, and hops-from-sanctions is surfaced visually.
-          </p>
-          <ul className="mt-4 space-y-2 text-sm text-foreground/85">
-            <li>
-              <span className="font-medium">Today</span> — the entity and transaction data powering this view is already live in MCP (
-              see Entities and Playbooks pages).
-            </li>
-            <li>
-              <span className="font-medium">Week 4</span> — WebGL canvas + filter chips + "shortest path to sanctions" lens.
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+      <div className="mt-6">
+        <NetworkGraph data={data} />
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-3 text-[11px] text-muted-foreground md:grid-cols-2">
+        <p>
+          Entity nodes are sized by Isolation-Forest anomaly score and coloured by risk tier. Owner
+          nodes attach by beneficial-ownership share; sanctions-list nodes attach to matched owners;
+          cases attach to their subject entity; branches aggregate the transactions seen for each case.
+        </p>
+        <p>
+          Hover a node to isolate its direct neighbours. Click to open its evidence card. Use the
+          chips top-left to filter by node kind — for example, turn off <span className="font-mono">owner</span>
+          to see only the entity / case / branch skeleton.
+        </p>
+      </div>
     </div>
   );
 }
