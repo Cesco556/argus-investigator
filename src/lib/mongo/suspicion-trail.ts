@@ -28,6 +28,7 @@ async function collection(): Promise<Collection<TrailEvent>> {
       .createIndexes([
         { key: { caseId: 1, ts: 1 }, name: "case_ts" },
         { key: { traceId: 1 }, name: "trace" },
+        { key: { ts: -1 }, name: "ts_desc" },
       ])
       .then(() => void 0)
       .catch((err) => {
@@ -57,14 +58,21 @@ export async function getTrail(caseId: string, limit = 200): Promise<TrailEvent[
     .toArray();
 }
 
+const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 export async function getRecentCases(limit = 20): Promise<Array<{ caseId: string; lastActivity: Date; events: number }>> {
   const col = await collection();
+  const since = new Date(Date.now() - RECENT_WINDOW_MS);
   const rows = await col
-    .aggregate<{ _id: string; lastActivity: Date; events: number }>([
-      { $group: { _id: "$caseId", lastActivity: { $max: "$ts" }, events: { $sum: 1 } } },
-      { $sort: { lastActivity: -1 } },
-      { $limit: limit },
-    ])
+    .aggregate<{ _id: string; lastActivity: Date; events: number }>(
+      [
+        { $match: { ts: { $gte: since } } },
+        { $group: { _id: "$caseId", lastActivity: { $max: "$ts" }, events: { $sum: 1 } } },
+        { $sort: { lastActivity: -1 } },
+        { $limit: limit },
+      ],
+      { hint: "ts_desc" },
+    )
     .toArray();
   return rows.map((r) => ({ caseId: r._id, lastActivity: r.lastActivity, events: r.events }));
 }
