@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatGBP, type Transaction } from "@/lib/data/fixtures";
 import { cn } from "@/lib/utils";
 
@@ -12,17 +12,24 @@ const HEIGHT = 260;
 export function TransactionTimeline({ transactions }: { transactions: Transaction[] }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [pulsed, setPulsed] = useState<string | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     function handler(e: Event) {
       const detail = (e as CustomEvent<{ tag: string; kind: string }>).detail;
       if (!detail || detail.kind !== "tx") return;
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
       setPulsed(detail.tag);
-      const timer = window.setTimeout(() => setPulsed(null), 1400);
-      return () => window.clearTimeout(timer);
+      timerRef.current = window.setTimeout(() => {
+        setPulsed(null);
+        timerRef.current = null;
+      }, 1400);
     }
     window.addEventListener("argus:cite", handler);
-    return () => window.removeEventListener("argus:cite", handler);
+    return () => {
+      window.removeEventListener("argus:cite", handler);
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    };
   }, []);
 
   const branches = useMemo(() => {
