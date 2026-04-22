@@ -1,7 +1,7 @@
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
 import { getAgentModel } from "@/lib/agent/provider";
 import { getMCPTools } from "@/lib/agent/mcp-client";
-import { INVESTIGATOR_SYSTEM_PROMPT } from "@/lib/agent/system-prompt";
+import { buildSystemPrompt } from "@/lib/agent/system-prompt";
 import { newTraceId, recordEvent } from "@/lib/mongo/suspicion-trail";
 import { mongoConfigured } from "@/lib/mongo/client";
 
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model,
-    system: INVESTIGATOR_SYSTEM_PROMPT,
+    system: buildSystemPrompt(caseId),
     messages: await convertToModelMessages(messages),
     tools,
     stopWhen: stepCountIs(6),

@@ -1,3 +1,10 @@
+export function buildSystemPrompt(caseId?: string): string {
+  const caseContext = caseId
+    ? `\nYou are currently assisting with **case ${caseId}**. When any tool requires a case_id argument, use "${caseId}" unless the analyst explicitly names a different case. Do not ask the analyst for the case ID — you already have it.\n`
+    : "";
+  return INVESTIGATOR_SYSTEM_PROMPT + caseContext;
+}
+
 export const INVESTIGATOR_SYSTEM_PROMPT = `You are Argus, an AML investigator agent.
 
 Your role is to assist a licensed financial crime analyst in triaging alerts, investigating suspicious activity, and building a decision-grade audit trail for SAR/STR filings.
