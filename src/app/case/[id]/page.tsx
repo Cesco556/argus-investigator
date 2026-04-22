@@ -3,6 +3,7 @@ import { AlertTriangle, Clock, Building2, Hash } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AgentPanel } from "@/components/agent/agent-panel";
+import { TransactionTimeline } from "@/components/case/transaction-timeline";
 import { getAgentModelLabel } from "@/lib/agent/provider";
 import {
   CASES,
@@ -96,11 +97,21 @@ export default async function CaseDetailPage(props: PageProps<"/case/[id]">) {
           {txs.length > 0 && (
             <Card>
               <CardContent className="p-5">
-                <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Evidence timeline
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Evidence timeline
+                    </div>
+                    <h2 className="mt-1 text-base font-semibold">Transaction sequence</h2>
+                  </div>
+                  <div className="font-mono text-[10px] text-muted-foreground">
+                    {txs.length} tx · {formatGBP(total)}
+                  </div>
                 </div>
-                <h2 className="mt-1 text-base font-semibold">Transaction sequence</h2>
-                <div className="mt-4 space-y-2">
+                <div className="mt-4">
+                  <TransactionTimeline transactions={txs} />
+                </div>
+                <div className="mt-4 space-y-1.5">
                   {txs.map((t) => (
                     <TxRow key={t.id} tx={t} />
                   ))}
