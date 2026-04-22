@@ -1,8 +1,10 @@
 # Argus — AML Investigator Workspace
 
+**Live:** https://argus-investigator.vercel.app
+
 A modern Anti-Money-Laundering investigator workspace that pairs a Claude-powered agent with a defensible decision trail, MCP-orchestrated tools, and a domain-built UI for financial-crime analysts.
 
-Argus is the front-end of a larger AML platform. The back-end engine — a production-grade FastAPI service with ML anomaly detection, sanctions screening, network analysis, and FinCEN SAR-compliant reporting — lives in the parent repo and is deployed at `http://139.59.182.126:8000`.
+Argus is the front-end of a larger AML platform. The back-end engine — a production-grade FastAPI service with ML anomaly detection, sanctions screening, network analysis, and FinCEN SAR-compliant reporting — lives in the parent repo and is deployed at `http://139.59.182.126:8000`. The MCP tool server runs alongside at `http://139.59.182.126:3333/mcp` behind a bearer-token.
 
 ## What it does
 
