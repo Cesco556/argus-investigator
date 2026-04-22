@@ -18,7 +18,10 @@ const PROMPTS = [
 export function AgentPanel({ caseId, modelLabel }: { caseId: string; modelLabel: string }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
-  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/agent" }), []);
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: "/api/agent", body: { caseId } }),
+    [caseId],
+  );
   const { messages, sendMessage, status, stop, error } = useChat({
     id: `case-${caseId}`,
     transport,
