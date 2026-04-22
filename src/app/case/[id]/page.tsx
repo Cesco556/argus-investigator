@@ -3,6 +3,7 @@ import { AlertTriangle, Clock, Building2, Hash } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AgentPanel } from "@/components/agent/agent-panel";
+import { DispositionPanel } from "@/components/case/disposition-panel";
 import { TransactionTimeline } from "@/components/case/transaction-timeline";
 import { getAgentModelLabel } from "@/lib/agent/provider";
 import {
@@ -138,6 +139,8 @@ export default async function CaseDetailPage(props: PageProps<"/case/[id]">) {
               </ul>
             </CardContent>
           </Card>
+
+          <DispositionPanel caseId={id} />
         </div>
       </div>
       <AgentPanel caseId={id} modelLabel={getAgentModelLabel()} />
@@ -172,7 +175,10 @@ function FactCard({
 
 function TxRow({ tx }: { tx: Transaction }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-border/40 bg-card/30 px-3 py-2 font-mono text-[11px] hover:border-border hover:bg-card/60">
+    <div
+      data-tx-id={tx.id}
+      className="flex items-center gap-3 rounded-md border border-border/40 bg-card/30 px-3 py-2 font-mono text-[11px] hover:border-border hover:bg-card/60"
+    >
       <span className="text-muted-foreground">{tx.id}</span>
       <span className="text-foreground/70">{formatTxTime(tx.ts)}</span>
       <span className="text-foreground/70">{tx.branch}</span>

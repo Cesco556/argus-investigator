@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatGBP, type Transaction } from "@/lib/data/fixtures";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,19 @@ const HEIGHT = 260;
 
 export function TransactionTimeline({ transactions }: { transactions: Transaction[] }) {
   const [hovered, setHovered] = useState<string | null>(null);
+  const [pulsed, setPulsed] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<{ tag: string; kind: string }>).detail;
+      if (!detail || detail.kind !== "tx") return;
+      setPulsed(detail.tag);
+      const timer = window.setTimeout(() => setPulsed(null), 1400);
+      return () => window.clearTimeout(timer);
+    }
+    window.addEventListener("argus:cite", handler);
+    return () => window.removeEventListener("argus:cite", handler);
+  }, []);
 
   const branches = useMemo(() => {
     const m = new Map<string, string>();
@@ -149,6 +162,7 @@ export function TransactionTimeline({ transactions }: { transactions: Transactio
 
           {points.map((p) => {
             const isHovered = hovered === p.tx.id;
+            const isPulsed = pulsed === p.tx.id;
             const dim = !!hovered && !isHovered;
             return (
               <g
@@ -157,14 +171,21 @@ export function TransactionTimeline({ transactions }: { transactions: Transactio
                 onMouseLeave={() => setHovered(null)}
                 style={{ cursor: "pointer" }}
               >
+                {isPulsed && (
+                  <circle cx={p.x} cy={p.y} r={14} fill={p.color} fillOpacity={0.18}>
+                    <animate attributeName="r" from="8" to="22" dur="1.2s" repeatCount="1" />
+                    <animate attributeName="fill-opacity" from="0.5" to="0" dur="1.2s" repeatCount="1" />
+                  </circle>
+                )}
                 <circle
                   cx={p.x}
                   cy={p.y}
-                  r={isHovered ? 8 : 6}
+                  r={isPulsed ? 9 : isHovered ? 8 : 6}
                   fill={p.color}
-                  fillOpacity={dim ? 0.25 : 0.85}
-                  stroke={isHovered ? "#fff" : "rgba(0,0,0,0.4)"}
-                  strokeWidth={isHovered ? 1.5 : 0.5}
+                  fillOpacity={dim && !isPulsed ? 0.25 : 0.9}
+                  stroke={isPulsed ? "#fff" : isHovered ? "#fff" : "rgba(0,0,0,0.4)"}
+                  strokeWidth={isPulsed ? 2 : isHovered ? 1.5 : 0.5}
+                  style={{ transition: "r 160ms ease-out" }}
                 />
               </g>
             );

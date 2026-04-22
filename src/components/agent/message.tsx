@@ -158,12 +158,53 @@ function renderWithCitations(text: string) {
     typeof p === "string" ? (
       <span key={i}>{p}</span>
     ) : (
-      <span
-        key={i}
-        className="mx-0.5 inline-flex items-center rounded border border-primary/30 bg-primary/10 px-1 py-0 align-baseline font-mono text-[10px] text-primary"
-      >
-        {p.tag}
-      </span>
+      <CitationChip key={i} tag={p.tag} />
     ),
+  );
+}
+
+function citationKind(tag: string): "tx" | "entity" | "fatf" | "case" | "other" {
+  if (tag.startsWith("entity:")) return "entity";
+  if (tag.startsWith("FATF-")) return "fatf";
+  if (tag.startsWith("TX-")) return "tx";
+  if (tag.startsWith("CASE-") || tag.startsWith("ALT-")) return "case";
+  return "other";
+}
+
+function CitationChip({ tag }: { tag: string }) {
+  const kind = citationKind(tag);
+  const onClick = () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("argus:cite", { detail: { tag, kind } }));
+    const selector =
+      kind === "entity"
+        ? `[data-entity-id="${tag.slice("entity:".length)}"]`
+        : kind === "tx"
+          ? `[data-tx-id="${tag}"]`
+          : kind === "case"
+            ? `[data-case-id="${tag}"]`
+            : null;
+    if (!selector) return;
+    const el = document.querySelector<HTMLElement>(selector);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const prevShadow = el.style.boxShadow;
+    const prevTransition = el.style.transition;
+    el.style.transition = "box-shadow 200ms ease-out";
+    el.style.boxShadow = "0 0 0 2px #e3a955";
+    window.setTimeout(() => {
+      el.style.boxShadow = prevShadow;
+      el.style.transition = prevTransition;
+    }, 1400);
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`Jump to ${tag}`}
+      className="mx-0.5 inline-flex items-center rounded border border-primary/30 bg-primary/10 px-1 py-0 align-baseline font-mono text-[10px] text-primary transition-colors hover:border-primary hover:bg-primary/20 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+    >
+      {tag}
+    </button>
   );
 }
