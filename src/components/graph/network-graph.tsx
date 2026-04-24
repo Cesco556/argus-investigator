@@ -41,8 +41,6 @@ export function NetworkGraph({ data }: { data: NetworkSerializedGraph }) {
   const [ready, setReady] = useState(0);
 
   const current = usePlayheadStore((s) => s.current);
-  const domain = usePlayheadStore((s) => s.domain);
-  const setCurrent = usePlayheadStore((s) => s.setCurrent);
   const setDomain = usePlayheadStore((s) => s.setDomain);
 
   const graph = useMemo(() => {
@@ -179,7 +177,7 @@ export function NetworkGraph({ data }: { data: NetworkSerializedGraph }) {
   }, [graph]);
 
   return (
-    <div className="relative h-[720px] overflow-hidden rounded-lg border border-border bg-card/30">
+    <div className="relative h-[600px] overflow-hidden rounded-lg border border-border bg-card/30">
       <div ref={containerRef} className="absolute inset-0" />
 
       <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-1.5">
@@ -217,43 +215,6 @@ export function NetworkGraph({ data }: { data: NetworkSerializedGraph }) {
       <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-border bg-card/70 px-2.5 py-1.5 font-mono text-[10px] text-muted-foreground backdrop-blur">
         click · drag · scroll
       </div>
-
-      {domain && (
-        <div className="pointer-events-auto absolute bottom-3 right-3 flex items-center gap-1.5 rounded-md border border-border bg-card/80 px-2 py-1 font-mono text-[10px] uppercase tracking-wider backdrop-blur">
-          <span className="text-muted-foreground">playhead · dev</span>
-          {([0.25, 0.5, 0.75] as const).map((p) => {
-            const target = domain.min + p * (domain.max - domain.min);
-            const active = current != null && Math.abs(current - target) < 1;
-            return (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setCurrent(target)}
-                className={cn(
-                  "rounded border px-1.5 py-0.5 transition-colors",
-                  active
-                    ? "border-primary/50 bg-primary/10 text-primary"
-                    : "border-border/60 text-foreground/85 hover:border-primary/40 hover:text-foreground",
-                )}
-              >
-                {Math.round(p * 100)}%
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setCurrent(null)}
-            className={cn(
-              "rounded border px-1.5 py-0.5 transition-colors",
-              current === null
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-border/60 text-foreground/85 hover:border-primary/40 hover:text-foreground",
-            )}
-          >
-            all
-          </button>
-        </div>
-      )}
 
       {selected && <DetailPanel detail={selected} onClose={() => setSelected(null)} />}
     </div>

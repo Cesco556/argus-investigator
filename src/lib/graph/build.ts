@@ -1,5 +1,4 @@
 import Graph from "graphology";
-import forceAtlas2 from "graphology-layout-forceatlas2";
 import { ENTITIES, CASES, SANCTIONS, TRANSACTIONS, type Entity } from "@/lib/data/fixtures";
 
 export type NodeKind = "entity" | "owner" | "case" | "sanctions" | "branch";
@@ -41,7 +40,6 @@ export interface EdgeAttrs {
 
 export type NetworkSerializedGraph = ReturnType<Graph<NodeAttrs, EdgeAttrs>["export"]>;
 
-// Hex approximations of our OKLCH tokens so WebGL can render them directly.
 const ENTITY_COLOR = {
   critical: "#e85a4f",
   high: "#e29354",
@@ -66,19 +64,41 @@ function slug(s: string): string {
   return s.toLowerCase().replace(/\s+/g, "-");
 }
 
-function seededRand(i: number): number {
-  const x = Math.sin(i * 9301 + 49297) * 233280;
-  return x - Math.floor(x);
+// Hand-authored layout.
+// Columns left→right tell the investigation: sanctions → owners → entities → cases → branches.
+// Row order within each column is chosen to keep edge crossings near zero.
+const POSITIONS: Record<string, { x: number; y: number }> = {
+  "sanc:OFAC_SDN": { x: -12, y: 7 },
+  "sanc:EU_consolidated": { x: -12, y: -7 },
+
+  "owner:viktor-petrenko": { x: -5, y: 7 },
+  "owner:arthur-linwood": { x: -5, y: 3 },
+  "owner:chinedu-obi": { x: -5, y: 0 },
+  "owner:layla-harding": { x: -5, y: -3 },
+  "owner:marta-velásquez": { x: -5, y: -5 },
+  "owner:konstantin-reiner": { x: -5, y: -7 },
+
+  "meridian-trade-ltd": { x: 2, y: 7 },
+  "helix-capital-partners": { x: 2, y: 3 },
+  "ardent-logistics-group": { x: 2, y: -2 },
+  "orion-holdings-llc": { x: 2, y: -7 },
+
+  "case:ALT-20260419-0019": { x: 9, y: 7 },
+  "case:ALT-20260419-0028": { x: 9, y: 3 },
+  "case:ALT-20260419-0022": { x: 9, y: -2 },
+  "case:ALT-20260419-0031": { x: 9, y: -7 },
+
+  "br:aberdeen-·-br-02": { x: 16, y: -4 },
+  "br:glasgow-·-br-11": { x: 16, y: -7 },
+  "br:edinburgh-·-br-05": { x: 16, y: -10 },
+};
+
+function posOf(id: string): { x: number; y: number } {
+  return POSITIONS[id] ?? { x: 0, y: 0 };
 }
 
 export function buildNetworkGraph(): NetworkSerializedGraph {
   const g = new Graph<NodeAttrs, EdgeAttrs>({ multi: false, type: "undirected" });
-  let seed = 0;
-  const nextPos = () => {
-    const p = { x: seededRand(seed) * 10 - 5, y: seededRand(seed + 1) * 10 - 5 };
-    seed += 2;
-    return p;
-  };
 
   const branchStats = new Map<string, { count: number; total: number; caseIds: Set<string>; firstTs: number }>();
   const caseFirstTs = new Map<string, number>();
@@ -100,7 +120,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
       kind: "entity",
       size: 10 + e.isolation_forest_score * 16,
       color: ENTITY_COLOR[entityTier(e)],
-      ...nextPos(),
+      ...posOf(e.entity_id),
       activatesAt: null,
       detail: {
         kind: "entity",
@@ -123,7 +143,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
           kind: "owner",
           size: 6,
           color: OWNER_COLOR,
-          ...nextPos(),
+          ...posOf(ownerId),
           activatesAt: null,
           detail: {
             kind: "owner",
@@ -147,17 +167,17 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
           g.addNode(sancId, {
             label: h.list.replaceAll("_", " "),
             kind: "sanctions",
-            size: 17,
+            size: 18,
             color: SANCTIONS_COLOR,
-            ...nextPos(),
+            ...posOf(sancId),
             activatesAt: null,
             detail: { kind: "sanctions", list: h.list },
           });
         }
         g.addEdge(ownerId, sancId, {
           kind: "sanctions_hit",
-          size: 1.6,
-          color: "rgba(232,90,79,0.6)",
+          size: 2,
+          color: "rgba(232,90,79,0.7)",
           label: `match ${h.match_score.toFixed(2)}`,
         });
       }
@@ -171,7 +191,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
       kind: "case",
       size: 9 + c.risk_score * 6,
       color: CASE_COLOR,
-      ...nextPos(),
+      ...posOf(caseNodeId),
       activatesAt: caseFirstTs.get(c.id) ?? null,
       detail: {
         kind: "case",
@@ -198,7 +218,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
       kind: "branch",
       size: 6 + Math.log2(stats.count + 1) * 2,
       color: BRANCH_COLOR,
-      ...nextPos(),
+      ...posOf(branchId),
       activatesAt: stats.firstTs,
       detail: {
         kind: "branch",
@@ -219,18 +239,6 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
       }
     }
   }
-
-  forceAtlas2.assign(g, {
-    iterations: 600,
-    settings: {
-      gravity: 0.9,
-      scalingRatio: 24,
-      strongGravityMode: true,
-      barnesHutOptimize: false,
-      slowDown: 3,
-      edgeWeightInfluence: 0,
-    },
-  });
 
   return g.export();
 }

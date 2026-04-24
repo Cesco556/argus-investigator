@@ -1,42 +1,87 @@
 import { PageHeader } from "@/components/shell/page-header";
 import { NetworkGraph } from "@/components/graph/network-graph";
-import { buildNetworkGraph, type NodeAttrs } from "@/lib/graph/build";
-import { CASES } from "@/lib/data/fixtures";
+import { buildNetworkGraph } from "@/lib/graph/build";
+import { CASES, TRANSACTIONS, formatGBP } from "@/lib/data/fixtures";
 
 export const metadata = { title: "Exposure graph" };
 
-type SerializedNode = { key: string; attributes?: NodeAttrs };
+const CTR_THRESHOLD_GBP = 10000;
 
 export default function GraphPage() {
   const data = buildNetworkGraph();
-  const ownerCount = data.nodes.filter((n: SerializedNode) => n.attributes?.kind === "owner").length;
-  const branchCount = data.nodes.filter((n: SerializedNode) => n.attributes?.kind === "branch").length;
-  const sanctionsCount = data.nodes.filter((n: SerializedNode) => n.attributes?.kind === "sanctions").length;
+
+  const amounts = TRANSACTIONS.map((t) => t.amount);
+  const minDeposit = Math.min(...amounts);
+  const maxDeposit = Math.max(...amounts);
+  const subCtrCount = TRANSACTIONS.filter((t) => t.amount < CTR_THRESHOLD_GBP).length;
+  const branches = Array.from(new Set(TRANSACTIONS.map((t) => t.branch.split(" · ")[0])));
   const caseCount = CASES.length;
+  const windowHours = 72;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-8">
+    <div className="mx-auto max-w-[1400px] px-6 py-5">
       <PageHeader
         eyebrow="Exposure graph"
-        title={`${sanctionsCount} sanctions hits trace through ${ownerCount} owners across ${branchCount} branches`}
-        description={`${caseCount} open cases share the same owner graph. Click any node to trace the exposure path; use the chips top-left to strip layers.`}
+        title="Four cases. One owner network. One investigation."
+        description={`Read left to right — sanctions at the source, branches where the cash surfaced. Every edge is evidence.`}
       />
-      <div className="mt-6">
-        <NetworkGraph data={data} />
-      </div>
-      <div className="mt-4 grid grid-cols-1 gap-3 text-[11px] text-muted-foreground md:grid-cols-2">
-        <p>
-          Red nodes are the punchline: sanctions-list matches and high-anomaly entities. Owner nodes
-          connect entities by beneficial-ownership share; branches aggregate the cash-deposit flow
-          behind each case. The network is the evidence that the four cases are one investigation.
-        </p>
-        <p>
-          Hover a node to isolate its direct neighbours. Click to open its evidence card. Turn off{" "}
-          <span className="font-mono">owner</span> to see only the entity / case / branch skeleton,
-          or{" "}
-          <span className="font-mono">branch</span> to see just the corporate-ownership layer.
-        </p>
+      <div className="mt-5 grid gap-6 md:grid-cols-[300px_1fr]">
+        <aside className="md:pt-1">
+          <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            The story
+          </div>
+          <ol className="relative space-y-5 border-l border-border/60 pl-5">
+            <Step dot="bg-risk-critical shadow-[0_0_10px] shadow-risk-critical/60" n="01" title="Sanctions nexus">
+              Two beneficial owners partially match international lists.
+              <div className="mt-1.5 font-mono text-[11px] leading-[1.5] text-risk-critical/90">
+                Viktor Petrenko · OFAC SDN · 0.87
+                <br />
+                Konstantin Reiner · EU consolidated · 0.61
+              </div>
+            </Step>
+            <Step dot="bg-risk-critical/70" n="02" title="Ownership bridge">
+              Petrenko holds 100% of Meridian Trade. Reiner holds 60% of Orion Holdings. Two of four
+              flagged entities are sanctions-adjacent.
+            </Step>
+            <Step dot="bg-risk-high" n="03" title="Below-CTR pattern">
+              {subCtrCount} cash deposits between {formatGBP(minDeposit)} and{" "}
+              {formatGBP(maxDeposit)} — every one under the £10,000 CTR threshold.
+            </Step>
+            <Step dot="bg-risk-info" n="04" title={`${branches.length} cities · ${windowHours} hours`}>
+              {branches.join(", ")}. Same originator, dispersed geography, short window — textbook
+              structuring.
+            </Step>
+            <Step dot="bg-primary" n="05" title="One investigation">
+              {caseCount} cases, {caseCount} typologies, one owner graph. That's the evidence the
+              cases belong together.
+            </Step>
+          </ol>
+        </aside>
+        <div>
+          <NetworkGraph data={data} />
+        </div>
       </div>
     </div>
+  );
+}
+
+function Step({
+  n,
+  title,
+  dot,
+  children,
+}: {
+  n: string;
+  title: string;
+  dot: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <li className="relative">
+      <span className={`absolute -left-[23px] top-1.5 h-2 w-2 rounded-full ${dot}`} />
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{n}</div>
+      <div className="mt-0.5 text-[13px] font-semibold text-foreground">{title}</div>
+      <div className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{children}</div>
+    </li>
   );
 }
