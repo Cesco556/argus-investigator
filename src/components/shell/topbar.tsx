@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Separator } from "@/components/ui/separator";
-import { CASES, TRANSACTIONS } from "@/lib/data/fixtures";
+import { CASES, SANCTIONS, TRANSACTIONS } from "@/lib/data/fixtures";
+
+const CTR_THRESHOLD_GBP = 10000;
 
 type Health = {
   ok: boolean;
@@ -37,7 +39,18 @@ export function Topbar() {
   }, []);
 
   const casesCount = CASES.length;
-  const txCount = TRANSACTIONS.length;
+  const sanctionsCount = Object.values(SANCTIONS).filter((arr) => arr.length > 0).length;
+  const belowCtrCount = TRANSACTIONS.filter((t) => t.amount < CTR_THRESHOLD_GBP).length;
+
+  const systemHealthy = !!health?.mcp.ok && !!health?.agent.configured;
+  const systemTone = loading ? "info" : systemHealthy ? "low" : health?.mcp.ok ? "medium" : "critical";
+  const systemTitle = loading
+    ? "checking system health…"
+    : systemHealthy
+      ? "investigation engine online"
+      : health?.mcp.ok
+        ? "agent not configured"
+        : `MCP ${health?.mcp.error ?? "down"}`;
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -45,33 +58,18 @@ export function Topbar() {
         <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
           Argus workspace
         </span>
-        <span className="font-mono text-[10px] text-muted-foreground/60">·</span>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
-          uk-south
-        </span>
       </div>
 
       <Separator orientation="vertical" className="h-6" />
 
       <div className="hidden items-center gap-2 md:flex">
-        <StatusPill
-          tone={health?.mcp.ok ? "low" : loading ? "info" : "critical"}
-          label="MCP"
-          value={
-            loading
-              ? "checking"
-              : health?.mcp.ok
-                ? `${health.mcp.latency_ms ?? 0}ms`
-                : (health?.mcp.error ?? "down")
-          }
-        />
-        <StatusPill
-          tone={health?.agent.configured ? "low" : "medium"}
-          label="Agent"
-          value={health?.agent.configured ? "ready" : "unconfigured"}
-        />
-        <StatusPill tone="info" label="Cases" value={String(casesCount)} />
-        <StatusPill tone="info" label="TX fixture" value={String(txCount)} />
+        <StatusPill tone="critical" label="Sanctions" value={String(sanctionsCount)} />
+        <StatusPill tone="high" label="Open cases" value={String(casesCount)} />
+        <StatusPill tone="medium" label="Below CTR" value={String(belowCtrCount)} />
+      </div>
+
+      <div className="ml-3 hidden items-center md:flex" title={systemTitle}>
+        <span className={`h-1.5 w-1.5 rounded-full ${toneDotClass(systemTone)}`} />
       </div>
 
       <div className="ml-auto flex items-center gap-2">
@@ -89,25 +87,22 @@ export function Topbar() {
   );
 }
 
-function StatusPill({
-  tone,
-  label,
-  value,
-}: {
-  tone: "low" | "medium" | "high" | "critical" | "info";
-  label: string;
-  value: string;
-}) {
-  const toneClass = {
+type Tone = "low" | "medium" | "high" | "critical" | "info";
+
+function toneDotClass(tone: Tone): string {
+  return {
     low: "bg-risk-low",
     medium: "bg-risk-medium",
     high: "bg-risk-high",
     critical: "bg-risk-critical",
     info: "bg-risk-info",
   }[tone];
+}
+
+function StatusPill({ tone, label, value }: { tone: Tone; label: string; value: string }) {
   return (
     <div className="flex items-center gap-1.5 rounded border border-border/70 bg-card/40 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-      <span className={`h-1.5 w-1.5 rounded-full ${toneClass}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${toneDotClass(tone)}`} />
       <span>{label}</span>
       <span className="text-foreground">{value}</span>
     </div>

@@ -123,8 +123,8 @@ export function Sidebar() {
         <div className="flex items-center gap-2.5 rounded-md bg-sidebar-accent/50 px-2.5 py-2">
           <div className="h-2 w-2 shrink-0 rounded-full bg-risk-low shadow-[0_0_8px] shadow-risk-low/50" />
           <div className="flex min-w-0 flex-col leading-tight">
-            <span className="truncate text-[11px] font-medium text-sidebar-foreground">Engine online</span>
-            <span className="truncate font-mono text-[9px] text-sidebar-foreground/50">v0.9 · uk-south</span>
+            <span className="truncate text-[11px] font-medium text-sidebar-foreground">Audit trail live</span>
+            <span className="truncate font-mono text-[9px] text-sidebar-foreground/50">every action cited</span>
           </div>
         </div>
       </div>

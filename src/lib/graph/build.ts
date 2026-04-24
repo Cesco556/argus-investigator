@@ -147,7 +147,7 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
           g.addNode(sancId, {
             label: h.list.replaceAll("_", " "),
             kind: "sanctions",
-            size: 11,
+            size: 17,
             color: SANCTIONS_COLOR,
             ...nextPos(),
             activatesAt: null,
@@ -221,13 +221,13 @@ export function buildNetworkGraph(): NetworkSerializedGraph {
   }
 
   forceAtlas2.assign(g, {
-    iterations: 300,
+    iterations: 600,
     settings: {
-      gravity: 1.3,
-      scalingRatio: 14,
-      strongGravityMode: false,
+      gravity: 0.9,
+      scalingRatio: 24,
+      strongGravityMode: true,
       barnesHutOptimize: false,
-      slowDown: 2,
+      slowDown: 3,
       edgeWeightInfluence: 0,
     },
   });
