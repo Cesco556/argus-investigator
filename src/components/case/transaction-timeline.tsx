@@ -12,10 +12,11 @@ const HEIGHT = 260;
 export function TransactionTimeline({ transactions }: { transactions: Transaction[] }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [pulsed, setPulsed] = useState<string | null>(null);
+  const [previewed, setPreviewed] = useState<string | null>(null);
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    function handler(e: Event) {
+    function onClick(e: Event) {
       const detail = (e as CustomEvent<{ tag: string; kind: string }>).detail;
       if (!detail || detail.kind !== "tx") return;
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
@@ -25,9 +26,16 @@ export function TransactionTimeline({ transactions }: { transactions: Transactio
         timerRef.current = null;
       }, 1400);
     }
-    window.addEventListener("argus:cite", handler);
+    function onHover(e: Event) {
+      const detail = (e as CustomEvent<{ tag: string; kind: string; hovering: boolean }>).detail;
+      if (!detail || detail.kind !== "tx") return;
+      setPreviewed(detail.hovering ? detail.tag : null);
+    }
+    window.addEventListener("argus:cite", onClick);
+    window.addEventListener("argus:cite:hover", onHover);
     return () => {
-      window.removeEventListener("argus:cite", handler);
+      window.removeEventListener("argus:cite", onClick);
+      window.removeEventListener("argus:cite:hover", onHover);
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
     };
   }, []);
@@ -170,6 +178,7 @@ export function TransactionTimeline({ transactions }: { transactions: Transactio
           {points.map((p) => {
             const isHovered = hovered === p.tx.id;
             const isPulsed = pulsed === p.tx.id;
+            const isPreviewed = previewed === p.tx.id && !isPulsed;
             const dim = !!hovered && !isHovered;
             return (
               <g
@@ -184,14 +193,17 @@ export function TransactionTimeline({ transactions }: { transactions: Transactio
                     <animate attributeName="fill-opacity" from="0.5" to="0" dur="1.2s" repeatCount="1" />
                   </circle>
                 )}
+                {isPreviewed && (
+                  <circle cx={p.x} cy={p.y} r={11} fill="none" stroke={p.color} strokeWidth={1.2} strokeOpacity={0.7} />
+                )}
                 <circle
                   cx={p.x}
                   cy={p.y}
-                  r={isPulsed ? 9 : isHovered ? 8 : 6}
+                  r={isPulsed ? 9 : isPreviewed ? 7.5 : isHovered ? 8 : 6}
                   fill={p.color}
-                  fillOpacity={dim && !isPulsed ? 0.25 : 0.9}
-                  stroke={isPulsed ? "#fff" : isHovered ? "#fff" : "rgba(0,0,0,0.4)"}
-                  strokeWidth={isPulsed ? 2 : isHovered ? 1.5 : 0.5}
+                  fillOpacity={dim && !isPulsed && !isPreviewed ? 0.25 : 0.9}
+                  stroke={isPulsed ? "#fff" : isPreviewed ? "#fff" : isHovered ? "#fff" : "rgba(0,0,0,0.4)"}
+                  strokeWidth={isPulsed ? 2 : isPreviewed ? 1.2 : isHovered ? 1.5 : 0.5}
                   style={{ transition: "r 160ms ease-out" }}
                 />
               </g>
