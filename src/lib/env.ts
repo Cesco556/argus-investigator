@@ -12,6 +12,7 @@ const serverSchema = z.object({
   MONGODB_URI: z.string().startsWith("mongodb").optional(),
   MONGODB_DB_NAME: z.string().min(1).default("argus"),
   AGENT_MODEL: z.enum(["anthropic:sonnet", "anthropic:opus", "azure:mini"]).optional(),
+  INVESTIGATOR_API_TOKEN: z.string().min(16).optional(),
 });
 
 const clientSchema = z.object({
@@ -30,6 +31,7 @@ const parsedServer = serverSchema.safeParse({
   MONGODB_URI: process.env.MONGODB_URI,
   MONGODB_DB_NAME: process.env.MONGODB_DB_NAME,
   AGENT_MODEL: process.env.AGENT_MODEL,
+  INVESTIGATOR_API_TOKEN: process.env.INVESTIGATOR_API_TOKEN,
 });
 
 if (!parsedServer.success) {

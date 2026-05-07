@@ -17,11 +17,11 @@ function connect(): Promise<MongoClient> {
 }
 
 export function getMongoClient(): Promise<MongoClient> {
-  if (env.NODE_ENV === "production") {
-    return connect();
-  }
   if (!globalThis.__argusMongoClient) {
-    globalThis.__argusMongoClient = connect();
+    globalThis.__argusMongoClient = connect().catch((err) => {
+      globalThis.__argusMongoClient = undefined;
+      throw err;
+    });
   }
   return globalThis.__argusMongoClient;
 }
