@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { Check, Clock, X } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type Disposition = "file_sar" | "dismiss" | "defer";
+type TrailStatus = "idle" | "syncing" | "saved" | "failed";
 
 interface Stored {
   decision: Disposition;
@@ -15,20 +17,73 @@ interface Stored {
 }
 
 const STORAGE_PREFIX = "argus:disposition:";
+const SAME_TAB_EVENT = "argus:disposition:changed";
 
-function readStored(caseId: string): Stored | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_PREFIX + caseId);
-    return raw ? (JSON.parse(raw) as Stored) : null;
-  } catch {
-    return null;
-  }
+function storageKey(caseId: string): string {
+  return STORAGE_PREFIX + caseId;
 }
 
 function writeStored(caseId: string, value: Stored) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_PREFIX + caseId, JSON.stringify(value));
+  window.localStorage.setItem(storageKey(caseId), JSON.stringify(value));
+  // Cross-tab updates fire `storage`. Same-tab updates do not, so dispatch a custom
+  // event the hook also listens for — keeps every mounted DispositionPanel in sync.
+  window.dispatchEvent(new CustomEvent(SAME_TAB_EVENT, { detail: caseId }));
+}
+
+/**
+ * SSR-safe localStorage subscription for a single disposition record. Returns the
+ * raw string value (or null) — parsing happens in a memo so React's `Object.is`
+ * snapshot comparison sees a stable string and skips redundant renders. Avoids the
+ * setState-in-effect cascade lint by reading via getSnapshot during render.
+ */
+function useStoredDisposition(caseId: string): Stored | null {
+  const subscribe = useCallback(
+    (cb: () => void) => {
+      if (typeof window === "undefined") return () => {};
+      const handler = (e: Event) => {
+        if (e instanceof StorageEvent) {
+          if (e.key === storageKey(caseId)) cb();
+        } else if (e instanceof CustomEvent && e.detail === caseId) {
+          cb();
+        }
+      };
+      window.addEventListener("storage", handler);
+      window.addEventListener(SAME_TAB_EVENT, handler);
+      return () => {
+        window.removeEventListener("storage", handler);
+        window.removeEventListener(SAME_TAB_EVENT, handler);
+      };
+    },
+    [caseId],
+  );
+  const getSnapshot = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(storageKey(caseId));
+  }, [caseId]);
+  const getServerSnapshot = useCallback(() => null, []);
+  const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useMemo<Stored | null>(() => {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as Stored;
+    } catch {
+      return null;
+    }
+  }, [raw]);
+}
+
+async function postToTrail(caseId: string, record: Stored): Promise<TrailStatus> {
+  try {
+    const res = await fetch("/api/disposition", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ caseId, ...record }),
+    });
+    return res.ok ? "saved" : "failed";
+  } catch {
+    return "failed";
+  }
 }
 
 const DECISION_META: Record<Disposition, { label: string; chipLabel: string; tone: "critical" | "low" | "medium" }> = {
@@ -38,15 +93,14 @@ const DECISION_META: Record<Disposition, { label: string; chipLabel: string; ton
 };
 
 export function DispositionPanel({ caseId }: { caseId: string }) {
-  const [stored, setStored] = useState<Stored | null>(null);
+  const stored = useStoredDisposition(caseId);
   const [pending, setPending] = useState<Disposition | null>(null);
   const [note, setNote] = useState("");
+  // Keyed by caseId so navigation between cases never reads a stale status from a different case.
+  const [trailStatusByCase, setTrailStatusByCase] = useState<Record<string, TrailStatus>>({});
+  const trailStatus: TrailStatus = trailStatusByCase[caseId] ?? "idle";
 
-  useEffect(() => {
-    setStored(readStored(caseId));
-  }, [caseId]);
-
-  const commit = (decision: Disposition) => {
+  const commit = async (decision: Disposition) => {
     const record: Stored = {
       decision,
       note: note.trim(),
@@ -54,9 +108,16 @@ export function DispositionPanel({ caseId }: { caseId: string }) {
       decidedBy: "current analyst",
     };
     writeStored(caseId, record);
-    setStored(record);
     setPending(null);
     setNote("");
+    setTrailStatusByCase((prev) => ({ ...prev, [caseId]: "syncing" }));
+    const status = await postToTrail(caseId, record);
+    setTrailStatusByCase((prev) => ({ ...prev, [caseId]: status }));
+    if (status === "saved") {
+      toast.success("Decision recorded to suspicion trail");
+    } else {
+      toast.error("Suspicion trail write failed — decision held in browser only");
+    }
   };
 
   const cancel = () => {
@@ -92,6 +153,7 @@ export function DispositionPanel({ caseId }: { caseId: string }) {
             <div className="flex items-center gap-2">
               <DecisionChip decision={stored.decision} />
               <span className="text-[11px] text-muted-foreground">— {stored.decidedBy}</span>
+              <TrailBadge status={trailStatus} />
             </div>
             {stored.note && <p className="mt-2 text-[12px] text-foreground/80">{stored.note}</p>}
             <button
@@ -130,7 +192,7 @@ export function DispositionPanel({ caseId }: { caseId: string }) {
             {pending && (
               <div className="space-y-2">
                 <textarea
-                  placeholder="Rationale — saved to the suspicion trail alongside this decision."
+                  placeholder="Rationale — appended to the suspicion trail alongside this decision."
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={2}
@@ -151,9 +213,6 @@ export function DispositionPanel({ caseId }: { caseId: string }) {
                   >
                     cancel
                   </button>
-                  <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-                    locally persisted · demo
-                  </span>
                 </div>
               </div>
             )}
@@ -198,6 +257,25 @@ function DecisionButton({
       <Icon className="h-3 w-3" />
       {meta.label}
     </button>
+  );
+}
+
+function TrailBadge({ status }: { status: TrailStatus }) {
+  if (status === "idle") return null;
+  const meta = {
+    syncing: { label: "syncing", tone: "border-border/40 bg-card/30 text-muted-foreground" },
+    saved: { label: "trail · synced", tone: "border-risk-low/40 bg-risk-low/10 text-risk-low" },
+    failed: { label: "trail · offline", tone: "border-risk-medium/40 bg-risk-medium/10 text-risk-medium" },
+  }[status];
+  return (
+    <span
+      className={cn(
+        "ml-auto inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider",
+        meta.tone,
+      )}
+    >
+      {meta.label}
+    </span>
   );
 }
 

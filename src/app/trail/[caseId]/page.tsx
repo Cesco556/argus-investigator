@@ -1,10 +1,33 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, Clock, Gavel, X } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { mongoConfigured } from "@/lib/mongo/client";
 import { getTrail, type TrailEvent } from "@/lib/mongo/suspicion-trail";
 import { cn } from "@/lib/utils";
+
+type Disposition = "file_sar" | "dismiss" | "defer";
+
+interface DispositionInput {
+  decision: Disposition;
+  note: string;
+  decidedBy: string;
+}
+
+function isDispositionEvent(e: TrailEvent): boolean {
+  return e.tool.name === "disposition.commit";
+}
+
+function dispositionInput(e: TrailEvent): DispositionInput | null {
+  const v = e.tool.input as DispositionInput | null | undefined;
+  if (!v || typeof v !== "object" || !("decision" in v)) return null;
+  if (v.decision !== "file_sar" && v.decision !== "dismiss" && v.decision !== "defer") return null;
+  return {
+    decision: v.decision,
+    note: typeof v.note === "string" ? v.note : "",
+    decidedBy: typeof v.decidedBy === "string" ? v.decidedBy : "analyst",
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -47,15 +70,22 @@ export default async function TrailDetailPage({ params }: { params: Promise<{ ca
   }
 
   const traces = groupByTrace(events);
+  const decisionCount = events.filter(isDispositionEvent).length;
+  const toolCount = events.length - decisionCount;
+  const description = [
+    `${toolCount} agent tool call${toolCount === 1 ? "" : "s"}`,
+    decisionCount > 0
+      ? `${decisionCount} analyst decision${decisionCount === 1 ? "" : "s"}`
+      : null,
+    `${traces.length} conversation turn${traces.length === 1 ? "" : "s"}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="mx-auto max-w-[1100px] px-6 py-8">
       <BackLink />
-      <PageHeader
-        eyebrow="Suspicion Trail"
-        title={caseId}
-        description={`${events.length} tool call${events.length === 1 ? "" : "s"} across ${traces.length} conversation turn${traces.length === 1 ? "" : "s"}.`}
-      />
+      <PageHeader eyebrow="Suspicion Trail" title={caseId} description={description} />
 
       {loadError && (
         <Card className="mt-6 border-risk-critical/40">
@@ -87,7 +117,9 @@ export default async function TrailDetailPage({ params }: { params: Promise<{ ca
                 <div className="text-right">
                   <div className="text-sm font-semibold tabular-nums">{trace.events.length}</div>
                   <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    tool call{trace.events.length === 1 ? "" : "s"}
+                    {trace.events.every(isDispositionEvent)
+                      ? `decision${trace.events.length === 1 ? "" : "s"}`
+                      : `event${trace.events.length === 1 ? "" : "s"}`}
                   </div>
                 </div>
               </div>
@@ -115,7 +147,31 @@ function BackLink() {
   );
 }
 
+const DECISION_META: Record<
+  Disposition,
+  { label: string; tone: string; icon: typeof Check }
+> = {
+  file_sar: {
+    label: "SAR filed",
+    tone: "border-risk-critical/40 bg-risk-critical/10 text-risk-critical",
+    icon: Gavel,
+  },
+  dismiss: {
+    label: "Dismissed",
+    tone: "border-risk-low/40 bg-risk-low/10 text-risk-low",
+    icon: X,
+  },
+  defer: {
+    label: "Deferred",
+    tone: "border-risk-medium/40 bg-risk-medium/10 text-risk-medium",
+    icon: Clock,
+  },
+};
+
 function EventRow({ event, idx }: { event: TrailEvent; idx: number }) {
+  const decision = isDispositionEvent(event) ? dispositionInput(event) : null;
+  if (decision) return <DecisionRow event={event} decision={decision} idx={idx} />;
+
   const ok = event.outcome.success;
   return (
     <li className="px-4 py-3">
@@ -144,6 +200,44 @@ function EventRow({ event, idx }: { event: TrailEvent; idx: number }) {
           tone={ok ? "default" : "error"}
         />
       </div>
+    </li>
+  );
+}
+
+function DecisionRow({
+  event,
+  decision,
+  idx,
+}: {
+  event: TrailEvent;
+  decision: DispositionInput;
+  idx: number;
+}) {
+  const meta = DECISION_META[decision.decision];
+  const Icon = meta.icon;
+  return (
+    <li className="px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="font-mono text-[10px] tabular-nums text-muted-foreground">#{idx + 1}</div>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider",
+            meta.tone,
+          )}
+        >
+          <Icon className="h-3 w-3" /> {meta.label}
+        </span>
+        <span className="text-[11px] text-muted-foreground">— {decision.decidedBy}</span>
+        <div className="ml-auto flex items-center gap-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span>analyst</span>
+          <span>{fmtClock(new Date(event.ts))}</span>
+        </div>
+      </div>
+      {decision.note && (
+        <p className="mt-2 rounded border border-border/40 bg-card/30 px-3 py-2 text-[12px] leading-relaxed text-foreground/85">
+          {decision.note}
+        </p>
+      )}
     </li>
   );
 }
