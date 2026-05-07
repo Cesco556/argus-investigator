@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/shell/page-header";
 import { NetworkGraph } from "@/components/graph/network-graph";
+import { PlayheadScrubber } from "@/components/graph/playhead-scrubber";
 import { buildNetworkGraph } from "@/lib/graph/build";
 import { CASES, TRANSACTIONS, formatGBP } from "@/lib/data/fixtures";
 
@@ -52,12 +53,13 @@ export default function GraphPage() {
               structuring.
             </Step>
             <Step dot="bg-primary" n="05" title="One investigation">
-              {caseCount} cases, {caseCount} typologies, one owner graph. That's the evidence the
-              cases belong together.
+              {caseCount} cases, {caseCount} typologies, one owner graph. That&apos;s the evidence
+              the cases belong together.
             </Step>
           </ol>
         </aside>
-        <div>
+        <div className="space-y-3">
+          <PlayheadScrubber />
           <NetworkGraph data={data} />
         </div>
       </div>

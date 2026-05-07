@@ -67,7 +67,7 @@ export default async function OverviewPage() {
               Investigator overview · {formatDate(now)}
             </div>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-              {greeting(now)}, Francesco.
+              {greeting(now)}, Analyst.
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {activeAlerts} cases in queue · {criticalOrHigh} critical or high · next SAR due in {nextSarDueLabel}

@@ -73,15 +73,14 @@ export default function SettingsPage() {
         <Card>
           <CardContent className="p-5">
             <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Roadmap
+              Suspicion Trail
             </div>
-            <h2 className="mt-1 text-base font-semibold">What a real settings UI needs</h2>
-            <ul className="mt-3 space-y-1.5 text-sm text-foreground/85">
-              <li>Provider switcher with per-deployment override</li>
-              <li>Threshold editor (risk score cutoff, SAR clock urgency)</li>
-              <li>Export format selector (SAR PDF, JSON, CSV audit log)</li>
-              <li>MCP tool registry toggles</li>
-            </ul>
+            <h2 className="mt-1 text-base font-semibold">Decision audit log</h2>
+            <div className="mt-3 space-y-2 text-sm">
+              <Row label="Persistence" value="MongoDB Atlas (append-only)" />
+              <Row label="Indexed by" value="caseId · traceId · ts" />
+              <Row label="Records" value="agent tool calls + analyst dispositions (SAR/dismiss/defer)" />
+            </div>
           </CardContent>
         </Card>
       </div>
